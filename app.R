@@ -3,9 +3,13 @@ library(shiny)
 library(DT)
 library(tidyverse)
 library(markdown)
+library(shinythemes)
 
-ui <- navbarPage(
-  "AP Charts",
+ui <-  shiny::navbarPage(theme = shinytheme("flatly"),
+   #the line of code places the logo on the left hand side before the tabs start.
+   title = div(img(src='APChartLogo.png',style="margin-top: -20px; margin-left: -20px; padding-right: 10px; padding-bottom:0px", height = 60 )),
+   windowTitle="API Charts",
+  #title = div(style="padding: -10px -10px; width: '100%'", img(src="TriFlame.png"), "AP Charts"),
   tabPanel
   ("Import",
     sidebarLayout(
@@ -21,16 +25,16 @@ ui <- navbarPage(
                      'text/plain',
                      '.tsv',
                      ".csv")
-        
+
         ),
         #actionButton("go","Display"),
-        
+
         # Horizontal line ----
         tags$hr(),
-        
+
         # Input: Checkbox if file has header ----
         checkboxInput("header", "Header", TRUE),
-        
+
         # Input: Select separator ----
         radioButtons(
           "sep",
@@ -42,7 +46,7 @@ ui <- navbarPage(
           ),
           selected = ","
         ),
-        
+
         # Input: Select quotes ----
         radioButtons(
           "quote",
@@ -54,10 +58,10 @@ ui <- navbarPage(
           ),
           selected = '"'
         ),
-        
+
         # Horizontal line ----
         tags$hr(),
-        
+
         # Input: Select number of rows to display ----
         radioButtons("disp", "Display",
                      choices = c(All = "all",
@@ -75,23 +79,23 @@ ui <- navbarPage(
              sidebarPanel(
                radioButtons(
                "plotType", "Plot type",
-               c("p-chart" = "p", 
-                 "Individual x" = "xbar.one",
+               c("Individual x" = "xbar.one",
+                 "p-chart" = "p",
                  "np-chart" = "np",
                  "u-chart" = "u",
                  "c-chart" = "c")
                            ),
-               
+
                # Horizontal line ----
                tags$hr(),
-               
+
                uiOutput("var1"),
                uiOutput("var2"),
                uiOutput("var3"),
-               
+
                # Horizontal line ----
                tags$hr(),
-               
+
                textInput("title", "Title:", "Chart Title"),
                textInput("yaxis", "Y-axis title", "Y-axis Label"),
                textInput("xaxis", "X-axis title:", "X-axis Label")
@@ -107,10 +111,10 @@ ui <- navbarPage(
                  # hover = hoverOpts(id = "plot_hover"),
                  # brush = brushOpts(id = "plot_brush")
                         ),
-               
+
                h4("Summary"),
                verbatimTextOutput("summary")
-               
+
                       )
                     )
            ),
@@ -136,27 +140,28 @@ ui <- navbarPage(
                )
              )
          )
-)
+    )
+
 
 
 server <- function(input, output) {
   df <- reactive({
     req(input$file1)
-    
+
     inFile <- input$file1
-    
+
     if (is.null(inFile))
       return(NULL)
-    
+
     read.csv(inFile$datapath,
              header = input$header,
              sep = input$sep,
              quote = input$quote,
-             stringsAsFactors = TRUE)  
-    
+             stringsAsFactors = TRUE)
+
   })
-  
-  # Print data table ----  
+
+  # Print data table ----
   output$rendered_file <- DT::renderDataTable({
   #  input$go
     if(input$disp == "head") {
@@ -166,56 +171,56 @@ server <- function(input, output) {
       df()
     }
   })
-  
-  
+
+
     # Dynamically generate UI input when data is uploaded ----
   output$var1 <- renderUI({
-    selectInput(inputId = "select_var1", 
-                       label = "Select value", 
+    selectInput(inputId = "select_var1",
+                       label = "Select value",
                        choices = names(df()),
-                       selected = names(df())[[2]])
+                       selected = names(df())[[3]])
   })
-  
+
   output$var2 <- renderUI({
-    selectInput(inputId = "select_var2", 
-                label = "Select Sample", 
+    selectInput(inputId = "select_var2",
+                label = "Select Sample",
                 choices = names(df()),
                 selected = names(df())[[2]])
   })
-  
+
   output$var3 <- renderUI({
-    selectInput(inputId = "select_var3", 
-                label = "Select Label", 
+    selectInput(inputId = "select_var3",
+                label = "Select Label",
                 choices = names(df()),
                 selected = names(df())[[1]])
-    
+
   })
 
-  
+
   selectedData <- reactive({
     req(input$select_var1)
     req(input$select_var2)
     req(input$select_var3)
-    selectedData <- df() %>% select(input$select_var3,input$select_var1,input$select_var2)
+    selectedData <- df() %>% filter(complete.cases(.)) %>% select(input$select_var3,input$select_var1,input$select_var2)
   })
-  
+
   qccObject <- reactive({
     req(input$plotType)
     qccObject<-qcc(data = selectedData()[,2], sizes = selectedData()[,3], labels = selectedData()[,1], type = input$plotType , rules = 1:6)
   })
-    
+
   output$plot1 <- renderPlot({
       req(input$title)
       req(input$xaxis)
       req(input$yaxis)
       plot.qcc(qccObject(), xlab=input$xaxis, ylab=input$yaxis, title = input$title, add.stats=FALSE)
-  })     
-  
-  
+  })
+
+
   output$summary <- renderPrint({
     print.qcc(qccObject())
   })
-  
+
   output$violations <- renderPrint({
     viol<-data.frame(qccObject()$violations)
     rules <- data.frame(RuleNum=1:6, RuleTitle= c("1. One point plots outside 3-sigma control limits",
@@ -226,9 +231,9 @@ server <- function(input, output) {
                                                   "6. 6 or more points increasing or decreasing")
     )
     viol<-merge(viol, rules, by.x =1, by.y =1)
-    table(viol$RuleTitle) 
-  }) 
-  
+    table(viol$RuleTitle)
+  })
+
   output$click_info <- renderPrint({
     cat("input$plot_click:\n")
     str(input$plot_click)
@@ -245,23 +250,23 @@ server <- function(input, output) {
     cat("input$plot_brush:\n")
     str(input$plot_brush)
   })
-  
+
   # output$downloadReport <- downloadHandler(
   #   filename = function() {
   #     paste('my-report', sep = '.', switch(
   #       input$format, PDF = 'pdf', HTML = 'html', Word = 'docx'
   #     ))
   #   },
-  #   
+  #
   #   content = function(file) {
   #     src <- normalizePath('report.Rmd')
-  #     
+  #
   #     # temporarily switch to the temp dir, in case you do not have write
   #     # permission to the current working directory
   #     # owd <- setwd(tempdir())
   #     # on.exit(setwd(owd))
   #     file.copy(src, 'report.Rmd', overwrite = TRUE)
-  #     
+  #
   #     out <- render('report.Rmd', switch(
   #       input$format,
   #       PDF = pdf_document(), HTML = html_document(), Word = word_document()
