@@ -8,7 +8,7 @@ library(shinythemes)
 ui <-  shiny::navbarPage(theme = shinytheme("flatly"),
    #the line of code places the logo on the left hand side before the tabs start.
    title = div(img(src='APChartLogo.png',style="margin-top: -20px; margin-left: -20px; padding-right: 10px; padding-bottom:0px", height = 60 )),
-   windowTitle="API Charts",
+   windowTitle="AP Charts",
   #title = div(style="padding: -10px -10px; width: '100%'", img(src="TriFlame.png"), "AP Charts"),
   tabPanel
   ("Import",
@@ -98,9 +98,23 @@ ui <-  shiny::navbarPage(theme = shinytheme("flatly"),
 
                textInput("title", "Title:", "Chart Title"),
                textInput("yaxis", "Y-axis title", "Y-axis Label"),
-               textInput("xaxis", "X-axis title:", "X-axis Label")
+               textInput("xaxis", "X-axis title:", "X-axis Label"),
                #submitButton("Submit")
-                      ),
+
+
+             # Horizontal line ----
+             tags$hr(),
+
+             checkboxGroupInput("ruleselect", "Select Rules:",
+                                c("1. One point plots outside 3-sigma control limits" = 1,
+                                "2. Two of three consecutive points plot beyond a 2-sigma limit"=2,
+                                "3. Four of five consecutive points plot beyond a 1-sigma limit"=3,
+                                "4. Eight consecutive points plot on one side of the center line"=4,
+                                "5. 15 points in zone C"=5,
+                                "6. Six or more points increasing or decreasing"=6)
+                                )
+             ),
+
              mainPanel(
                # Output: Header + table of distribution ----
                h4("Chart"),
@@ -206,7 +220,8 @@ server <- function(input, output) {
 
   qccObject <- reactive({
     req(input$plotType)
-    qccObject<-qcc(data = selectedData()[,2], sizes = selectedData()[,3], labels = selectedData()[,1], type = input$plotType , rules = 1:6)
+    req(input$ruleselect)
+    qccObject<-qcc(data = selectedData()[,2], sizes = selectedData()[,3], labels = selectedData()[,1], type = input$plotType , rules = input$ruleselect)
   })
 
   output$plot1 <- renderPlot({
@@ -228,7 +243,7 @@ server <- function(input, output) {
                                                   "3. Four of five consecutive points plot beyond a 1-sigma limit",
                                                   "4. Eight consecutive points plot on one side of the center line",
                                                   "5. 15 points in zone C",
-                                                  "6. 6 or more points increasing or decreasing")
+                                                  "6. Six or more points increasing or decreasing")
     )
     viol<-merge(viol, rules, by.x =1, by.y =1)
     table(viol$RuleTitle)
